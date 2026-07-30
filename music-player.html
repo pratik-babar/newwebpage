@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Music Player</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: linear-gradient(135deg, #0f172a, #1e293b);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+      }
+      .player {
+        width: 360px;
+        background: rgba(255,255,255,0.08);
+        backdrop-filter: blur(10px);
+        border-radius: 20px;
+        padding: 24px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+      }
+      .cover {
+        height: 220px;
+        border-radius: 16px;
+        background: linear-gradient(135deg, #8b5cf6, #ec4899);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 3rem;
+        margin-bottom: 16px;
+      }
+      .info { text-align: center; margin-bottom: 16px; }
+      .info h2 { margin: 0 0 6px; font-size: 1.3rem; }
+      .info p { margin: 0; color: #cbd5e1; }
+      .timeline-wrap { margin: 12px 0; }
+      .timeline {
+        width: 100%;
+        accent-color: #8b5cf6;
+        cursor: pointer;
+      }
+      .time-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.9rem;
+        color: #cbd5e1;
+        margin-top: 4px;
+      }
+      .controls {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        margin-top: 16px;
+        flex-wrap: wrap;
+      }
+      button {
+        border: none;
+        border-radius: 50%;
+        width: 48px;
+        height: 48px;
+        font-size: 1rem;
+        cursor: pointer;
+        background: #fff;
+        color: #111827;
+      }
+      button.play {
+        width: 56px;
+        height: 56px;
+        background: #8b5cf6;
+        color: white;
+      }
+      .song-list {
+        margin-top: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .song-item {
+        background: rgba(255,255,255,0.1);
+        padding: 10px;
+        border-radius: 10px;
+        cursor: pointer;
+      }
+      .song-item.active {
+        background: rgba(139, 92, 246, 0.45);
+      }
+      .repeat.active {
+        background: #8b5cf6;
+        color: white;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="player">
+      <div class="cover" id="cover">♫</div>
+      <div class="info">
+        <h2 id="title">Song Title</h2>
+        <p id="artist">Artist Name</p>
+      </div>
+
+      <div class="timeline-wrap">
+        <input type="range" class="timeline" id="timeline" min="0" max="100" value="0" />
+        <div class="time-row">
+          <span id="currentTime">0:00</span>
+          <span id="durationTime">0:00</span>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button onclick="prevSong()">⏮</button>
+        <button class="play" onclick="togglePlay()" id="playBtn">▶</button>
+        <button onclick="nextSong()">⏭</button>
+        <button class="repeat" onclick="toggleRepeat()" id="repeatBtn">🔁</button>
+      </div>
+
+      <div class="song-list" id="songList"></div>
+    </div>
+
+    <script>
+      const songs = [
+        { title: 'Midnight Glow', artist: 'Ava', duration: 185, color: 'linear-gradient(135deg, #8b5cf6, #ec4899)' },
+        { title: 'Sunset Drive', artist: 'Noah', duration: 210, color: 'linear-gradient(135deg, #06b6d4, #3b82f6)' },
+        { title: 'City Lights', artist: 'Mia', duration: 195, color: 'linear-gradient(135deg, #f59e0b, #ef4444)' }
+      ];
+
+      let currentIndex = 0;
+      let isPlaying = false;
+      let currentTime = 0;
+      let timer;
+      let repeatEnabled = false;
+
+      const titleEl = document.getElementById('title');
+      const artistEl = document.getElementById('artist');
+      const coverEl = document.getElementById('cover');
+      const timelineEl = document.getElementById('timeline');
+      const currentTimeEl = document.getElementById('currentTime');
+      const durationTimeEl = document.getElementById('durationTime');
+      const playBtn = document.getElementById('playBtn');
+      const repeatBtn = document.getElementById('repeatBtn');
+      const songListEl = document.getElementById('songList');
+
+      function formatTime(sec) {
+        const m = Math.floor(sec / 60);
+        const s = sec % 60;
+        return `${m}:${s.toString().padStart(2, '0')}`;
+      }
+
+      function renderSong() {
+        const song = songs[currentIndex];
+        titleEl.textContent = song.title;
+        artistEl.textContent = song.artist;
+        coverEl.style.background = song.color;
+        durationTimeEl.textContent = formatTime(song.duration);
+        currentTimeEl.textContent = formatTime(currentTime);
+        timelineEl.max = song.duration;
+        timelineEl.value = currentTime;
+        renderSongList();
+      }
+
+      function renderSongList() {
+        songListEl.innerHTML = '';
+        songs.forEach((song, index) => {
+          const div = document.createElement('div');
+          div.className = 'song-item' + (index === currentIndex ? ' active' : '');
+          div.textContent = `${song.title} - ${song.artist}`;
+          div.onclick = () => {
+            currentIndex = index;
+            currentTime = 0;
+            renderSong();
+            if (isPlaying) startTimer();
+          };
+          songListEl.appendChild(div);
+        });
+      }
+
+      function startTimer() {
+        clearInterval(timer);
+        timer = setInterval(() => {
+          currentTime += 1;
+          if (currentTime >= songs[currentIndex].duration) {
+            currentTime = 0;
+            if (repeatEnabled) {
+              renderSong();
+              if (isPlaying) startTimer();
+            } else {
+              nextSong();
+            }
+            return;
+          }
+          timelineEl.value = currentTime;
+          currentTimeEl.textContent = formatTime(currentTime);
+        }, 1000);
+      }
+
+      function togglePlay() {
+        isPlaying = !isPlaying;
+        playBtn.textContent = isPlaying ? '⏸' : '▶';
+        if (isPlaying) {
+          startTimer();
+        } else {
+          clearInterval(timer);
+        }
+      }
+
+      function toggleRepeat() {
+        repeatEnabled = !repeatEnabled;
+        repeatBtn.classList.toggle('active', repeatEnabled);
+      }
+
+      function nextSong() {
+        currentIndex = (currentIndex + 1) % songs.length;
+        currentTime = 0;
+        renderSong();
+        if (isPlaying) startTimer();
+      }
+
+      function prevSong() {
+        currentIndex = (currentIndex - 1 + songs.length) % songs.length;
+        currentTime = 0;
+        renderSong();
+        if (isPlaying) startTimer();
+      }
+
+      timelineEl.addEventListener('input', () => {
+        currentTime = Number(timelineEl.value);
+        currentTimeEl.textContent = formatTime(currentTime);
+      });
+
+      renderSong();
+    </script>
+  </body>
+</html>
